@@ -57,7 +57,7 @@ def upload_to_hopsworks(df):
         description="Hourly AQI + weather data for Skardu",
         online_enabled=True
     )
-    fg.insert(df, write_options={"wait_for_job": False, "use_kafka": False})
+    fg.insert(df, write_options={"wait_for_job": False})
     print("✅ Data inserted into Hopsworks successfully")
 
 if __name__ == "__main__":
