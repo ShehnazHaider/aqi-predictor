@@ -1,4 +1,4 @@
-name: Feature Pipeline
+name: Collect AQI Data Hourly
 
 on:
   schedule:
