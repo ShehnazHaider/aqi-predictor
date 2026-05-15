@@ -59,7 +59,7 @@ def fetch_historical_data(start_date, end_date):
             "month":          current.month,
             "is_weekend":     int(current.weekday() >= 5),
             "temperature":    float(temperature),
-            "humidity":       float(humidity),
+            "humidity":       int(humidity),
             "wind_speed":     float(wind_speed),
             "aqi_index":      int(pollution["main"]["aqi"]),
             "co":             float(pollution["components"]["co"]),
