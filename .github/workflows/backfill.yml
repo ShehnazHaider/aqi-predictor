@@ -25,4 +25,4 @@ jobs:
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
           HOPSWORKS_PROJECT_NAME: ${{ secrets.HOPSWORKS_PROJECT_NAME }}
           HOPSWORKS_HOST: ${{ secrets.HOPSWORKS_HOST }}
-        run: python collect_data.py
+        run: python historical_data.py
