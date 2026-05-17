@@ -18,7 +18,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install "hopsworks[python]" pandas
+        run: pip install "hopsworks[python]==4.7.2" requests pandas python-dotenv
 
 
     - name: Run export script
