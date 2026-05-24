@@ -1,24 +1,19 @@
-import os
-import pandas as pd
 import hopsworks
+import pandas as pd
+import os
 
-# LOAD DATA
-df = pd.read_csv("data/skardu_aqi_dataset.csv")
-df["timestamp"] = pd.to_datetime(df["timestamp"])
+# =========================================================
+# LOAD ENV VARIABLES (GitHub Actions)
+# =========================================================
 
-print("Dataset loaded:", len(df))
-
-# ENV
 api_key = os.getenv("HOPSWORKS_API_KEY")
 project_name = os.getenv("HOPSWORKS_PROJECT_NAME")
 host = os.getenv("HOPSWORKS_HOST")
 
-# SAFETY CHECK (IMPORTANT DEBUG STEP)
-print("API key exists:", api_key is not None)
-print("Project:", project_name)
-print("Host:", host)
-
+# =========================================================
 # LOGIN
+# =========================================================
+
 project = hopsworks.login(
     api_key_value=api_key,
     project=project_name,
@@ -27,14 +22,31 @@ project = hopsworks.login(
 
 fs = project.get_feature_store()
 
+# =========================================================
+# LOAD CSV
+# =========================================================
+
+df = pd.read_csv("skardu_aqi_dataset.csv")
+df["timestamp"] = pd.to_datetime(df["timestamp"])
+
+print("✅ Dataset loaded:", len(df))
+
+# =========================================================
+# GET FEATURE GROUP (AUTO VERSIONING)
+# =========================================================
+
 fg = fs.get_or_create_feature_group(
     name="skardu_aqi_prediction",
-    version=1,
+    version=None,   # 👈 IMPORTANT: auto version increment
     primary_key=["timestamp"],
     event_time="timestamp",
     online_enabled=True
 )
 
+# =========================================================
+# INSERT DATA (NEW VERSION AUTOMATICALLY CREATED)
+# =========================================================
+
 fg.insert(df)
 
-print("UPLOAD SUCCESS:", len(df))
+print("✅ Upload complete")

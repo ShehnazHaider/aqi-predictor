@@ -1,8 +1,6 @@
-name: Upload AQI Dataset to Hopsworks
+name: Upload CSV to Hopsworks
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -10,29 +8,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      # =========================
+      # 1. Checkout repo
+      # =========================
+      - name: Checkout code
         uses: actions/checkout@v3
 
+      # =========================
+      # 2. Setup Python
+      # =========================
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
 
-      - name: Upgrade pip
-        run: pip install --upgrade pip
-
+      # =========================
+      # 3. Install dependencies
+      # =========================
       - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Debug secrets (safe check)
         run: |
-          echo "Project name exists: ${{ secrets.HOPSWORKS_PROJECT_NAME != '' }}"
-          echo "Host exists: ${{ secrets.HOPSWORKS_HOST != '' }}"
-          echo "API key length: ${#HOPSWORKS_API_KEY}"
-        env:
-          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
+          python -m pip install --upgrade pip
+          pip install "hopsworks[python]==4.7.*" pandas pyarrow
 
-      - name: Run upload script
+      # =========================
+      # 4. Run upload script
+      # =========================
+      - name: Upload dataset to Hopsworks
         env:
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
           HOPSWORKS_PROJECT_NAME: ${{ secrets.HOPSWORKS_PROJECT_NAME }}
