@@ -5,61 +5,191 @@ from datetime import datetime
 import hopsworks
 from dotenv import load_dotenv
 
+# =========================================================
+# LOAD ENV VARIABLES
+# =========================================================
+
 load_dotenv()
 
-API_KEY = os.getenv("OPENWEATHER_API_KEY")
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
+
 HOPSWORKS_API_KEY = os.getenv("HOPSWORKS_API_KEY")
+
 HOPSWORKS_PROJECT = os.getenv("HOPSWORKS_PROJECT_NAME")
+
 HOPSWORKS_HOST = os.getenv("HOPSWORKS_HOST")
 
-LAT = 35.29  # Skardu
+# =========================================================
+# LOCATION — SKARDU
+# =========================================================
+
+LAT = 35.29
 LON = 75.63
 
+# =========================================================
+# FETCH CURRENT DATA
+# =========================================================
+
 def fetch_data():
-    pollution_url = f"https://api.openweathermap.org/data/2.5/air_pollution?lat={LAT}&lon={LON}&appid={API_KEY}"
-    pollution = requests.get(pollution_url).json()["list"][0]
 
-    weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={LAT}&lon={LON}&appid={API_KEY}&units=metric"
-    weather = requests.get(weather_url).json()
+    # =====================================================
+    # POLLUTION DATA — OPENWEATHER
+    # =====================================================
 
-    now = datetime.utcnow()
+    pollution_url = (
+        f"https://api.openweathermap.org/data/2.5/air_pollution?"
+        f"lat={LAT}"
+        f"&lon={LON}"
+        f"&appid={OPENWEATHER_API_KEY}"
+    )
 
-    return pd.DataFrame([{
-        "timestamp_str":  str(now),
-        "temperature":    float(weather["main"]["temp"]),
-        "humidity":       int(weather["main"]["humidity"]),
-        "wind_speed":     float(weather["wind"]["speed"]),
-        "aqi_index":      int(pollution["main"]["aqi"]),
-        "co":             float(pollution["components"]["co"]),
-        "no2":            float(pollution["components"]["no2"]),
-        "o3":             float(pollution["components"]["o3"]),
-        "so2":            float(pollution["components"]["so2"]),
-        "pm2_5":          float(pollution["components"]["pm2_5"]),
-        "pm10":           float(pollution["components"]["pm10"]),
-        "nh3":            float(pollution["components"]["nh3"]),
-    }])
+    pollution_response = requests.get(
+        pollution_url,
+        timeout=30
+    )
+
+    pollution = pollution_response.json()["list"][0]
+
+    # =====================================================
+    # WEATHER DATA — OPENWEATHER
+    # =====================================================
+
+    weather_url = (
+        f"https://api.openweathermap.org/data/2.5/weather?"
+        f"lat={LAT}"
+        f"&lon={LON}"
+        f"&appid={OPENWEATHER_API_KEY}"
+        f"&units=metric"
+    )
+
+    weather_response = requests.get(
+        weather_url,
+        timeout=30
+    )
+
+    weather = weather_response.json()
+
+    # =====================================================
+    # TIMESTAMP
+    # =====================================================
+
+    now = datetime.utcnow().replace(
+        minute=0,
+        second=0,
+        microsecond=0
+    )
+
+    # =====================================================
+    # FINAL ROW
+    # =====================================================
+
+    row = {
+
+        "timestamp": now,
+
+        # WEATHER FEATURES
+        "temperature":
+            float(weather["main"]["temp"]),
+
+        "humidity":
+            int(weather["main"]["humidity"]),
+
+        "wind_speed":
+            float(weather["wind"]["speed"]),
+
+        # TIME FEATURES
+        "year": now.year,
+
+        "month": now.month,
+
+        "day": now.day,
+
+        "hour": now.hour,
+
+        "day_of_week": now.weekday(),
+
+        "is_weekend":
+            int(now.weekday() >= 5),
+
+        # AQI + POLLUTANTS
+        "aqi_index":
+            int(pollution["main"]["aqi"]),
+
+        "co":
+            float(pollution["components"]["co"]),
+
+        "no2":
+            float(pollution["components"]["no2"]),
+
+        "o3":
+            float(pollution["components"]["o3"]),
+
+        "so2":
+            float(pollution["components"]["so2"]),
+
+        "pm2_5":
+            float(pollution["components"]["pm2_5"]),
+
+        "pm10":
+            float(pollution["components"]["pm10"]),
+
+        "nh3":
+            float(pollution["components"]["nh3"]),
+    }
+
+    return pd.DataFrame([row])
+
+# =========================================================
+# UPLOAD TO HOPSWORKS
+# =========================================================
 
 def upload_to_hopsworks(df):
+
+    print("🔄 Connecting to Hopsworks...")
+
     project = hopsworks.login(
         api_key_value=HOPSWORKS_API_KEY,
         project=HOPSWORKS_PROJECT,
         host=HOPSWORKS_HOST
     )
+
     fs = project.get_feature_store()
-    fg = fs.get_or_create_feature_group(
-        name="aqi_features_skardu",
-        version=1,
-        primary_key=["timestamp_str"],
-        description="Hourly AQI + weather data for Skardu",
-        online_enabled=True
+
+    # =====================================================
+    # SAME FEATURE GROUP AS FINAL DATASET
+    # =====================================================
+
+    fg = fs.get_feature_group(
+        name="skardu_aqi_prediction",
+        version=1
     )
-    fg.insert(df, write_options={"wait_for_job": False, "use_kafka": False})
-    print("✅ Data inserted into Hopsworks successfully")
+
+    print("🔄 Uploading new hourly row...")
+
+    fg.insert(
+        df,
+        write_options={
+            "wait_for_job": False,
+            "use_kafka": False
+        }
+    )
+
+    print("✅ Data inserted successfully")
+
+# =========================================================
+# MAIN
+# =========================================================
 
 if __name__ == "__main__":
-    print("🔄 Fetching data...")
+
+    print("🔄 Fetching latest AQI data...")
+
     df = fetch_data()
+
     print(df)
+
     print("🔄 Uploading to Hopsworks...")
+
     upload_to_hopsworks(df)
-    print("✅ Pipeline completed!")
+
+    print("✅ Hourly pipeline completed!")
