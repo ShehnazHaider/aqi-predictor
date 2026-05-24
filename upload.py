@@ -6,7 +6,7 @@ import hopsworks
 # LOAD CSV
 # =========================
 
-df = pd.read_csv("data/skardu_aqi_dataset.csv")
+df = pd.read_csv("skardu_aqi_dataset.csv")
 df["timestamp"] = pd.to_datetime(df["timestamp"])
 
 print("Dataset loaded:", len(df))
