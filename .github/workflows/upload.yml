@@ -2,8 +2,7 @@ name: Upload AQI Dataset to Hopsworks
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -19,8 +18,19 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Upgrade pip
+        run: pip install --upgrade pip
+
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      - name: Debug secrets (safe check)
+        run: |
+          echo "Project name exists: ${{ secrets.HOPSWORKS_PROJECT_NAME != '' }}"
+          echo "Host exists: ${{ secrets.HOPSWORKS_HOST != '' }}"
+          echo "API key length: ${#HOPSWORKS_API_KEY}"
+        env:
+          HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
 
       - name: Run upload script
         env:

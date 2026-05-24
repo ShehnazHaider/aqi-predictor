@@ -2,27 +2,23 @@ import os
 import pandas as pd
 import hopsworks
 
-# =========================
-# LOAD CSV
-# =========================
-
-df = pd.read_csv("skardu_aqi_dataset.csv")
+# LOAD DATA
+df = pd.read_csv("data/skardu_aqi_dataset.csv")
 df["timestamp"] = pd.to_datetime(df["timestamp"])
 
 print("Dataset loaded:", len(df))
 
-# =========================
-# ENV VARIABLES
-# =========================
-
+# ENV
 api_key = os.getenv("HOPSWORKS_API_KEY")
 project_name = os.getenv("HOPSWORKS_PROJECT_NAME")
 host = os.getenv("HOPSWORKS_HOST")
 
-# =========================
-# CONNECT
-# =========================
+# SAFETY CHECK (IMPORTANT DEBUG STEP)
+print("API key exists:", api_key is not None)
+print("Project:", project_name)
+print("Host:", host)
 
+# LOGIN
 project = hopsworks.login(
     api_key_value=api_key,
     project=project_name,
@@ -30,10 +26,6 @@ project = hopsworks.login(
 )
 
 fs = project.get_feature_store()
-
-# =========================
-# FEATURE GROUP
-# =========================
 
 fg = fs.get_or_create_feature_group(
     name="skardu_aqi_prediction",
@@ -43,10 +35,6 @@ fg = fs.get_or_create_feature_group(
     online_enabled=True
 )
 
-# =========================
-# UPLOAD
-# =========================
-
 fg.insert(df)
 
-print("Upload complete")
+print("UPLOAD SUCCESS:", len(df))
