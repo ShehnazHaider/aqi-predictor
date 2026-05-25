@@ -49,8 +49,8 @@ def upload_to_hopsworks(df):
     fs = project.get_feature_store()
 
     fg = fs.get_or_create_feature_group(
-        name="skardu_aqi_prediction",
-        version=1,
+        name="skardu_aqi_prediction_v2",
+        version=2,
         primary_key=["timestamp"],   # ✅ FIXED (was timestamp_str)
         description="Hourly AQI + weather data for Skardu",
         online_enabled=True
