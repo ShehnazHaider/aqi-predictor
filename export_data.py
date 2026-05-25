@@ -19,8 +19,8 @@ fs = project.get_feature_store()
 
 # Get Feature Group
 feature_group = fs.get_feature_group(
-    name="aqi_prediction_v3",
-    version=3 
+    name="aqi_prediction",
+    version=1
 )
 
 print("✅ Feature group found")
