@@ -5,36 +5,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Login
 project = hopsworks.login(
     api_key_value=os.getenv("HOPSWORKS_API_KEY"),
     project=os.getenv("HOPSWORKS_PROJECT_NAME"),
     host=os.getenv("HOPSWORKS_HOST")
 )
-
 print("✅ Connected to Hopsworks")
 
-# Feature Store
 fs = project.get_feature_store()
 
-# Get Feature Group
-feature_group = fs.get_feature_group(
-    name="aqi_prediction",
-    version=1
-)
-
+feature_group = fs.get_feature_group(name="aqi_prediction", version=1)
 print("✅ Feature group found")
 
-# Read data
-query = feature_group.select_all()
-
-df = query.read()
+# Force Hive reader — bypasses Arrow Flight gRPC which fails on fresh data
+df = feature_group.read(read_options={"use_hive": True})
 
 print("✅ Data loaded")
 
-# Save CSV
 csv_path = "hopsworks_data.csv"
-
 df.to_csv(csv_path, index=False)
 
 print(f"✅ CSV saved: {csv_path}")
