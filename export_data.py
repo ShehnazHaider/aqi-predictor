@@ -19,7 +19,7 @@ fs = project.get_feature_store()
 
 # Get Feature Group
 feature_group = fs.get_feature_group(
-    name="skardu_aqi_prediction",
+    name="skardu_aqi_prediction_v2",
     version=2   
 )
 
