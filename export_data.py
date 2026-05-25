@@ -16,7 +16,7 @@ project = hopsworks.login(
 fs = project.get_feature_store()
 
 # Load your feature group
-feature_group = fs.get_feature_group(name="aqi_features_skardu", version=1)
+feature_group = fs.get_feature_group(name="skardu_aqi_prediction", version=1)
 
 # Read data into pandas DataFrame
 df = feature_group.read()
