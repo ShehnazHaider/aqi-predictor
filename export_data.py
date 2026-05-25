@@ -12,19 +12,31 @@ project = hopsworks.login(
     host=os.getenv("HOPSWORKS_HOST")
 )
 
-# Access Feature Store
+print("✅ Connected to Hopsworks")
+
+# Feature Store
 fs = project.get_feature_store()
 
-# Load your feature group
-feature_group = fs.get_feature_group(name="skardu_aqi_prediction", version=1)
+# Get Feature Group
+feature_group = fs.get_feature_group(
+    name="skardu_aqi_prediction",
+    version=1
+)
 
-# Read data into pandas DataFrame
-df = feature_group.read()
+print("✅ Feature group found")
 
-# Save as CSV
+# Read data
+query = feature_group.select_all()
+
+df = query.read()
+
+print("✅ Data loaded")
+
+# Save CSV
 csv_path = "hopsworks_data.csv"
+
 df.to_csv(csv_path, index=False)
 
-print(f"✅ Data saved to {csv_path}")
-print(f"✅ Total rows: {len(df)}")
+print(f"✅ CSV saved: {csv_path}")
+print(f"✅ Rows: {len(df)}")
 print(df.head())
