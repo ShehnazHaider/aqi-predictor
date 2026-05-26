@@ -1,23 +1,57 @@
-# export_hopsworks_data.py
-
 import hopsworks
 import pandas as pd
+import requests
 import os
+from dotenv import load_dotenv
 
-# Login using environment variable
-project = hopsworks.login(api_key_value=os.getenv("HOPSWORKS_API_KEY"))
+load_dotenv()
 
-# Access the Feature Store
-fs = project.get_feature_store()
+API_KEY = os.getenv("HOPSWORKS_API_KEY")
+HOST = os.getenv("HOPSWORKS_HOST")
+PROJECT_NAME = os.getenv("HOPSWORKS_PROJECT_NAME")
 
-# Load your feature group
-feature_group = fs.get_feature_group(name="skardu_aqi_prediction_v3", version=3)
+# Step 1: Get project ID
+headers = {
+    "X-Api-Key": API_KEY,
+    "Content-Type": "application/json"
+}
 
-# Read data into pandas DataFrame
-df = feature_group.read()
+projects_resp = requests.get(
+    f"https://{HOST}/hopsworks-api/api/projects/getProjectInfo/{PROJECT_NAME}",
+    headers=headers
+)
+project_id = projects_resp.json()["projectId"]
+print(f"✅ Project ID: {project_id}")
 
-# Save as CSV
-csv_path = "hopsworks_data.csv"
-df.to_csv(csv_path, index=False)
+# Step 2: Get feature store ID
+fs_resp = requests.get(
+    f"https://{HOST}/hopsworks-api/api/project/{project_id}/featurestores",
+    headers=headers
+)
+fs_id = fs_resp.json()[0]["featurestoreId"]
+print(f"✅ Feature store ID: {fs_id}")
 
-print(f"✅ Data saved to {csv_path}")
+# Step 3: Get feature group ID
+fg_resp = requests.get(
+    f"https://{HOST}/hopsworks-api/api/project/{project_id}/featurestores/{fs_id}/featuregroups?name=aqi_prediction&version=1",
+    headers=headers
+)
+fg_id = fg_resp.json()[0]["id"]
+print(f"✅ Feature group ID: {fg_id}")
+
+# Step 4: Preview data (up to 1000 rows)
+preview_resp = requests.get(
+    f"https://{HOST}/hopsworks-api/api/project/{project_id}/featurestores/{fs_id}/featuregroups/{fg_id}/preview?storage=offline&n=10000",
+    headers=headers
+)
+
+data = preview_resp.json()
+columns = [col["name"] for col in data["columns"]]
+rows = data["rows"]
+
+df = pd.DataFrame(rows, columns=columns)
+print(f"✅ Data loaded: {len(df)} rows")
+
+df.to_csv("hopsworks_data.csv", index=False)
+print("✅ CSV saved")
+print(df.head())
