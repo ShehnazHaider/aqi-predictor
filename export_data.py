@@ -14,10 +14,7 @@ project = hopsworks.login(
 fs = project.get_feature_store()
 fg = fs.get_feature_group(name="aqi_prediction", version=1)
 
-df = fg.read(online=True)  # 👈 this is the only change
-
-print(f"✅ Rows: {len(df)}")
+df = fg.read(online=True)
 
 df.to_csv("hopsworks_data.csv", index=False)
-print("✅ CSV saved")
-print(df.head())
+print(f"✅ Done | Rows: {len(df)}")
