@@ -3,3 +3,6 @@ pandas
 python-dotenv
 hopsworks
 scikit-learn
+xgboost
+tensorflow
+joblib

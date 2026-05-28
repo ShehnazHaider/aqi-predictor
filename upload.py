@@ -37,7 +37,7 @@ print("✅ Dataset loaded:", len(df))
 
 fg = fs.get_or_create_feature_group(
     name="aqi_prediction",
-    version=,   # 👈 IMPORTANT: auto version increment
+    version=1,   # 👈 IMPORTANT: auto version increment
     primary_key=["timestamp"],
     event_time="timestamp",
     online_enabled=True
