@@ -10,7 +10,7 @@ fs = project.get_feature_store()
 
 # === Get Raw Data from Hopsworks ===
 raw_fg = fs.get_feature_group(name="aqi_prediction", version=1)
-df = raw_fg.read()
+df = raw_fg.read(read_options={"use_hive": True})
 print("✅ Raw data loaded from Hopsworks")
 
 # ==================== Feature Engineering ===========================
