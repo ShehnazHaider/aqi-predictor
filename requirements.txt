@@ -1,8 +1,9 @@
 requests
 pandas
 python-dotenv
-hopsworks
+hopsworks==4.7.*
 scikit-learn
 xgboost
 tensorflow
 joblib
+pyarrow
