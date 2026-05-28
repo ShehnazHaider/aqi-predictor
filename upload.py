@@ -22,22 +22,13 @@ project = hopsworks.login(
 
 fs = project.get_feature_store()
 
-# =========================================================
-# DELETE OLD FEATURE GROUP (if exists)
-# =========================================================
 
-try:
-    old_fg = fs.get_feature_group(name="aqi_prediction", version=1)
-    old_fg.delete()
-    print("✅ Old feature group deleted")
-except Exception as e:
-    print(f"⚠️ No old feature group to delete: {e}")
 
 # =========================================================
 # LOAD CSV
 # =========================================================
 
-df = pd.read_csv("skardu_aqi_dataset.csv")
+df = pd.read_csv("latest.csv")
 df["timestamp"] = pd.to_datetime(df["timestamp"])
 
 # Add unique ID as primary key
@@ -52,7 +43,7 @@ print(f"   Date range: {df['timestamp'].min()} to {df['timestamp'].max()}")
 # =========================================================
 
 fg = fs.get_or_create_feature_group(
-    name="aqi_prediction",
+    name="aqi_predictionv2",
     version=1,
     primary_key=["id"],              # ✅ id as primary key
     event_time="timestamp",
