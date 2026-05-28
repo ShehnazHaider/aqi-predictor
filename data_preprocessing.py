@@ -10,20 +10,22 @@ fs = project.get_feature_store()
 
 # === Get Raw Data from Hopsworks ===
 raw_fg = fs.get_feature_group(name="aqi_prediction", version=1)
-df = raw_fg.read(read_options={"use_hive": True})
-print("✅ Raw data loaded from Hopsworks")
+df = raw_fg.read()
+print(f"✅ Raw data loaded from Hopsworks: {len(df)} rows")
+print(f"   Date range: {df['timestamp'].min()} to {df['timestamp'].max()}")
 
 # ==================== Feature Engineering ===========================
 df.columns = df.columns.str.strip().str.lower()
 
-# Remove exact duplicates (except timestamp)
-df = df.drop_duplicates(subset=[col for col in df.columns if col != "timestamp"])
+# Remove exact duplicates (except timestamp and id)
+dup_cols = [col for col in df.columns if col not in ["timestamp", "id"]]
+df = df.drop_duplicates(subset=dup_cols)
 
 # Convert timestamp
 df["timestamp"] = pd.to_datetime(df["timestamp"])
-df["date"] = df["timestamp"].dt.date  # ✅ For daily aggregation
+df["date"] = df["timestamp"].dt.date
 
-# === AQI Breakpoints (US EPA standard) ===
+# ==================== AQI Breakpoints (US EPA standard) ====================
 breakpoints = {
     "pm2_5": [
         {"low": 0.0, "high": 12.0, "aqi_low": 0, "aqi_high": 50},
@@ -79,7 +81,7 @@ breakpoints = {
     ]
 }
 
-# === AQI Calculation (on hourly data) ===
+# ==================== AQI Calculation ====================
 def calculate_aqi(concentration, bps):
     for bp in bps:
         if bp["low"] <= concentration <= bp["high"]:
@@ -97,9 +99,9 @@ def calculate_row_aqi(row):
 
 df["calculated_aqi"] = df.apply(calculate_row_aqi, axis=1).round(2)
 
-# ==================== ✅ DAILY AGGREGATION ====================
+# ==================== Daily Aggregation ====================
 daily = df.groupby("date").agg({
-    "calculated_aqi": "max",      # Max AQI of the day (standard practice)
+    "calculated_aqi": "max",
     "pm2_5": "mean",
     "pm10": "mean",
     "co": "mean",
@@ -112,24 +114,29 @@ daily = df.groupby("date").agg({
     "wind_speed": "mean"
 }).reset_index()
 
+print(f"✅ Daily aggregation complete: {len(daily)} days")
+
 # Extract time features from date
 daily["date"] = pd.to_datetime(daily["date"])
 daily["day"] = daily["date"].dt.day
 daily["month"] = daily["date"].dt.month
 
-# Log transforms
+# ==================== Log Transforms ====================
 daily["co_log"] = np.log1p(daily["co"])
 daily["so2_log"] = np.log1p(daily["so2"])
 daily["nh3_log"] = np.log1p(daily["nh3"])
 
-# AQI change rate (day-over-day)
+# ==================== AQI Change Rate ====================
 daily = daily.sort_values("date").reset_index(drop=True)
 daily["aqi_change_rate"] = daily["calculated_aqi"].diff().fillna(0).round(2)
 
-# ==================== ✅ 3-DAY TARGETS (now correct for daily data) ====================
+# ==================== 3-Day Forecast Targets ====================
 daily["aqi_day1"] = daily["calculated_aqi"].shift(-1)
 daily["aqi_day2"] = daily["calculated_aqi"].shift(-2)
 daily["aqi_day3"] = daily["calculated_aqi"].shift(-3)
+
+print(f"✅ Targets created")
+print(f"   Days with NaN targets (last 3): {daily['aqi_day1'].isna().sum()}")
 
 # ==================== Add Unique ID ====================
 daily.insert(0, "id", range(1, len(daily) + 1))
@@ -154,24 +161,42 @@ df_final = pd.concat([daily.drop(columns=features_to_scale), scaled_df], axis=1)
 
 # ==================== Winsorization ====================
 def cap_outliers(df, col):
-    lower = df[col].quantile(0.01)
-    upper = df[col].quantile(0.99)
-    df[col] = np.clip(df[col], lower, upper)
+    if col in df.columns:
+        lower = df[col].quantile(0.01)
+        upper = df[col].quantile(0.99)
+        df[col] = np.clip(df[col], lower, upper)
     return df
 
-for col in ["pm2_5_scaled", "pm10_scaled", "o3_scaled",
-            "so2_log_scaled", "nh3_log_scaled", "co_log_scaled"]:
-    if col in df_final.columns:
-        df_final = cap_outliers(df_final, col)
+outlier_cols = [
+    "pm2_5_scaled", "pm10_scaled", "o3_scaled",
+    "so2_log_scaled", "nh3_log_scaled", "co_log_scaled"
+]
+
+for col in outlier_cols:
+    df_final = cap_outliers(df_final, col)
+
+print(f"✅ Outliers capped for {len(outlier_cols)} columns")
 
 # ==================== Store in Hopsworks ====================
+# Delete old processed feature group if exists
+try:
+    old_fg = fs.get_feature_group(name="processed_aqi_skardu", version=1)
+    old_fg.delete()
+    print("✅ Old processed feature group deleted")
+except:
+    pass
+
 processed_fg = fs.get_or_create_feature_group(
     name="processed_aqi_skardu",
     version=1,
     primary_key=["id"],
+    online_enabled=False,
     description="Daily aggregated AQI data with 3-day forecast targets"
 )
 
 processed_fg.insert(df_final, write_options={"wait_for_job": True})
-print(f"✅ Processed daily data stored in Hopsworks feature group.")
+print(f"✅ Processed data stored in Hopsworks feature group")
 print(f"   Total daily rows: {len(df_final)}")
+print(f"   Feature columns: {[c for c in df_final.columns if '_scaled' in c]}")
+print(f"   Target columns: aqi_day1, aqi_day2, aqi_day3")
+print(f"   Date range: {df_final['date'].min()} to {df_final['date'].max()}")
