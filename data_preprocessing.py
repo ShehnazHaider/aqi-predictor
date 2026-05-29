@@ -179,7 +179,7 @@ except:
     pass
 
 processed_fg = fs.get_or_create_feature_group(
-    name="processed_aqi_skardu",
+    name="processed_aqi_skardu_v2",
     version=1,
     primary_key=["id"],
     online_enabled=False,
