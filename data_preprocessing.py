@@ -9,7 +9,7 @@ project = hopsworks.login(api_key_value=os.environ["HOPSWORKS_API_KEY"])
 fs = project.get_feature_store()
 
 # === Get Raw Data from Hopsworks ===
-raw_fg = fs.get_feature_group(name="aqi_prediction", version=1)
+raw_fg = fs.get_feature_group(name="aqi_predictionv2", version=1)
 df = raw_fg.read()
 print(f"✅ Raw data loaded from Hopsworks: {len(df)} rows")
 print(f"   Date range: {df['timestamp'].min()} to {df['timestamp'].max()}")
