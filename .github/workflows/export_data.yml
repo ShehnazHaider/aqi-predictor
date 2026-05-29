@@ -24,7 +24,7 @@ jobs:
         HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
         HOPSWORKS_PROJECT_NAME: ${{ secrets.HOPSWORKS_PROJECT_NAME }}
         HOPSWORKS_HOST: ${{ secrets.HOPSWORKS_HOST }}
-      run: python test.py
+      run: python export_data.py
 
     - name: Upload CSV as artifact
       uses: actions/upload-artifact@v4
