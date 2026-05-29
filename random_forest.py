@@ -51,8 +51,7 @@ model.fit(X_train, y_train)
 y_pred = model.predict(X_test)
 
 metrics = {
-    "model": "RandomForest",
-    "timestamp": datetime.utcnow().isoformat(),
+    
     "train_samples": len(X_train),
     "test_samples": len(X_test),
     "rmse_day1": float(np.sqrt(mean_squared_error(y_test[:, 0], y_pred[:, 0]))),

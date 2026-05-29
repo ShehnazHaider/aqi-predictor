@@ -86,8 +86,7 @@ history = model.fit(
 y_pred = model.predict(X_test_seq)
 
 metrics = {
-    "model": "LSTM",
-    "timestamp": datetime.utcnow().isoformat(),
+    
     "train_samples": len(X_train_seq),
     "test_samples": len(X_test_seq),
     "lookback_days": lookback,
