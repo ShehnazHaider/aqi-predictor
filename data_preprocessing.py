@@ -178,7 +178,7 @@ print(f"✅ Outliers capped for {len(outlier_cols)} columns")
 # ==================== Store in Hopsworks ====================
 try:
     old_fg = fs.get_feature_group(
-        name="processed_aqi_skardu", version=1
+        name="processed_aqi_skardu_v2", version=1
     )
     old_fg.delete()
     print("✅ Old processed feature group deleted")
