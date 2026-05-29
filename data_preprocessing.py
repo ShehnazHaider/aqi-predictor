@@ -13,25 +13,25 @@ fs = project.get_feature_store()
 raw_fg = fs.get_feature_group(name="aqi_predictionv2", version=1)
 df = raw_fg.read()
 print(f"✅ Raw data loaded from Hopsworks: {len(df)} rows")
-print(f"   Date range: {df['timestamp_str'].min()} to {df['timestamp_str'].max()}")
+print(f"   Date range: {df['timestamp'].min()} to {df['timestamp'].max()}")
 
 # ==================== Feature Engineering ===========================
 df.columns = df.columns.str.strip().str.lower()
 
 # Remove exact duplicates (except timestamp and id)
-dup_cols = [col for col in df.columns if col not in ["timestamp_str", "id"]]
+dup_cols = [col for col in df.columns if col not in ["timestamp", "id"]]
 df = df.drop_duplicates(subset=dup_cols)
 
 # Convert timestamp
-df["timestamp_str"] = pd.to_datetime(df["timestamp_str"])
+df["timestamp"] = pd.to_datetime(df["timestamp"])
 
 # ==================== Keep Hourly Data ==========================
 daily = df.copy()
-daily = daily.sort_values("timestamp_str").reset_index(drop=True)
+daily = daily.sort_values("timestamp").reset_index(drop=True)
 
 # Extract time features from timestamp
-daily["day"]   = daily["timestamp_str"].dt.day
-daily["month"] = daily["timestamp_str"].dt.month
+daily["day"]   = daily["timestamp"].dt.day
+daily["month"] = daily["timestamp"].dt.month
 
 print(f"✅ Hourly data kept: {len(daily)} rows")
 
@@ -119,7 +119,7 @@ daily["so2_log"] = np.log1p(daily["so2"])
 daily["nh3_log"] = np.log1p(daily["nh3"])
 
 # ==================== AQI Change Rate ====================
-daily = daily.sort_values("timestamp_str").reset_index(drop=True)
+daily = daily.sort_values("timestamp").reset_index(drop=True)
 daily["aqi_change_rate"] = daily["calculated_aqi"].diff().fillna(0).round(2)
 
 # ==================== 3-Day Forecast Targets ====================
