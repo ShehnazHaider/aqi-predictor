@@ -12,10 +12,6 @@ import plotly.express as px
 # ==================== SETUP ====================
 load_dotenv()
 
-# Create temp directory for Hopsworks on Windows
-tmp_path = r"C:\tmp\eu-west.cloud.hopsworks.ai"
-os.makedirs(tmp_path, exist_ok=True)
-
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
     page_title="AQI Predictor - Skardu",
@@ -53,6 +49,14 @@ def load_data():
     df = df.sort_values("timestamp")
     return df
 
+@st.cache_data(ttl=1800)
+def load_raw_data():
+    fs, _ = connect_hopsworks()
+    fg = fs.get_feature_group(name="aqi_predictionv2", version=1)
+    df = fg.read()
+    df = df.sort_values("timestamp")
+    return df
+
 # ==================== LOAD BEST MODEL ====================
 @st.cache_resource(ttl=3600)
 def load_best_model():
@@ -60,7 +64,6 @@ def load_best_model():
     try:
         best = mr.get_best_model(name="aqi_xgb", metric="rmse_overall", direction="min")
         model_path = best.download()
-        # Find the actual model file
         if os.path.isdir(model_path):
             files = os.listdir(model_path)
             pkl_files = [f for f in files if f.endswith('.pkl')]
@@ -70,7 +73,7 @@ def load_best_model():
         model = joblib.load(model_file)
         return model, best
     except Exception as e:
-        st.warning(f"Best model not found, using fallback: {e}")
+        st.warning(f"Best model not found, using fallback")
         models = mr.get_models(name="aqi_xgb")
         latest = models[-1]
         model_path = latest.download()
@@ -82,6 +85,7 @@ def load_best_model():
             model_file = model_path
         model = joblib.load(model_file)
         return model, latest
+
 # ==================== AQI HELPERS ====================
 def get_aqi_level(aqi_value):
     if aqi_value <= 50:
@@ -118,6 +122,7 @@ st.caption("3-Day Air Quality Index Forecast | Powered by Machine Learning")
 # Load data and model
 with st.spinner("🔄 Loading data and model..."):
     df = load_data()
+    df_raw = load_raw_data()
     model, model_meta = load_best_model()
 
 # ==================== SIDEBAR ====================
@@ -278,7 +283,7 @@ st.plotly_chart(fig_hist, use_container_width=True)
 # ==================== CURRENT CONDITIONS ====================
 st.header("🌡️ Current Conditions")
 
-latest_raw = df.sort_values("timestamp").iloc[-1]
+latest_raw = df_raw.sort_values("timestamp").iloc[-1]
 
 c1, c2, c3, c4, c5 = st.columns(5)
 
@@ -287,14 +292,17 @@ with c1:
     st.metric("🌡️ Temperature", f"{temp:.1f}°C" if pd.notna(temp) else "N/A")
 with c2:
     hum = latest_raw.get('humidity', None)
-    st.metric("💧 Humidity", f"{hum}%" if pd.notna(hum) else "N/A")
+    st.metric("💧 Humidity", f"{hum:.0f}%" if pd.notna(hum) else "N/A")
 with c3:
     wind = latest_raw.get('wind_speed', None)
-    st.metric("💨 Wind Speed", f"{wind} m/s" if pd.notna(wind) else "N/A")
+    st.metric("💨 Wind Speed", f"{wind:.1f} m/s" if pd.notna(wind) else "N/A")
 with c4:
-    aqi_val = latest_raw.get('calculated_aqi', 0)
-    level, emoji, _ = get_aqi_level(aqi_val) if pd.notna(aqi_val) else ("N/A", "", "")
-    st.metric("📊 Current AQI", f"{aqi_val:.0f}" if pd.notna(aqi_val) else "N/A")
+    aqi_val = latest_raw.get('calculated_aqi', None)
+    if pd.notna(aqi_val):
+        level, emoji, _ = get_aqi_level(aqi_val)
+        st.metric("📊 Current AQI", f"{aqi_val:.0f}")
+    else:
+        st.metric("📊 Current AQI", "N/A")
 with c5:
     ts = latest_raw.get("timestamp", None)
     st.metric("🕐 Last Updated", pd.to_datetime(ts).strftime("%H:%M") if pd.notna(ts) else "N/A")
@@ -320,6 +328,8 @@ for i, (name, (col, unit, safe_limit)) in enumerate(pollutants.items()):
         if pd.notna(value):
             status = "🟢" if value <= safe_limit else "🔴"
             st.metric(f"{status} {name}", f"{value:.1f} {unit}")
+        else:
+            st.metric(f"⚪ {name}", "N/A")
 
 # ==================== FOOTER ====================
 st.divider()
