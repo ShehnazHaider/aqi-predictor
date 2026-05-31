@@ -114,7 +114,7 @@ model.save(model_path)
 
 model_obj = mr.tensorflow.create_model(
     name="aqi_lstm",
-    version=int(datetime.utcnow().strftime("%Y%m%d%H%M")),
+    version=int(datetime.utcnow().strftime("%y%m%d")),
     description="LSTM for 3-day AQI prediction (7-day lookback)",
     metrics=metrics
 )

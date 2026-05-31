@@ -77,7 +77,7 @@ joblib.dump(model, model_path)
 
 model_obj = mr.sklearn.create_model(
     name="aqi_rf",
-    version=int(datetime.utcnow().strftime("%Y%m%d%H%M")),
+    version=int(datetime.utcnow().strftime("%y%m%d")), 
     description="Random Forest for 3-day AQI prediction",
     metrics=metrics
 )
