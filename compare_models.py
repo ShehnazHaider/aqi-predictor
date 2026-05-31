@@ -7,7 +7,7 @@ project = hopsworks.login(api_key_value=os.environ["HOPSWORKS_API_KEY"])
 mr = project.get_model_registry()
 
 # Get all models
-model_names = ["aqi_lr", "aqi_rf", "aqi_xgb", "aqi_gbm", "aqi_lstm"]
+model_names = ["aqi_lr", "aqi_rf", "aqi_xgb", "aqi_gbm", "aqi_prophet"]
 
 best_model = None
 best_rmse = float('inf')

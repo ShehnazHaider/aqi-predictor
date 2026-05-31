@@ -48,10 +48,10 @@ jobs:
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
         run: python gradient_boost.py
 
-      - name: 🧠 Train LSTM
+      - name: 🧠 Train Prophet
         env:
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
-        run: python lstm.py
+        run: prophet_model.py
 
       - name: 🏆 Compare models & select best
         env:

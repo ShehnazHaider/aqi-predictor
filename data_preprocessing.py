@@ -118,6 +118,20 @@ hourly["nh3_log"] = np.log1p(hourly["nh3"])
 hourly = hourly.sort_values("timestamp").reset_index(drop=True)
 hourly["aqi_change_rate"] = hourly["calculated_aqi"].diff().fillna(0).round(2)
 
+# ==================== ✅ ROLLING STATISTICS ====================
+for window in [6, 12, 24]:
+    hourly[f"aqi_rolling_mean_{window}h"] = hourly["calculated_aqi"].rolling(window).mean()
+    hourly[f"aqi_rolling_std_{window}h"] = hourly["calculated_aqi"].rolling(window).std()
+    hourly[f"pm25_rolling_mean_{window}h"] = hourly["pm2_5"].rolling(window).mean()
+
+# ==================== ✅ LAG FEATURES ====================
+for lag in [1, 3, 24]:
+    hourly[f"aqi_lag_{lag}h"] = hourly["calculated_aqi"].shift(lag)
+    hourly[f"pm25_lag_{lag}h"] = hourly["pm2_5"].shift(lag)
+
+# Fill NaN from rolling/lag calculations
+hourly = hourly.bfill().ffill()
+
 # ==================== ✅ 3-Day Forecast Targets (hourly: shift by 24/48/72) ====================
 hourly["aqi_day1"] = hourly["calculated_aqi"].shift(-24)
 hourly["aqi_day2"] = hourly["calculated_aqi"].shift(-48)
@@ -139,7 +153,13 @@ features_to_scale = [
     "so2_log", "nh3_log",
     "temperature", "humidity", "wind_speed",
     "hour", "day", "month",
-    "aqi_change_rate"
+    "aqi_change_rate",
+    "aqi_rolling_mean_6h", "aqi_rolling_std_6h", "pm25_rolling_mean_6h",
+    "aqi_rolling_mean_12h", "aqi_rolling_std_12h", "pm25_rolling_mean_12h",
+    "aqi_rolling_mean_24h", "aqi_rolling_std_24h", "pm25_rolling_mean_24h",
+    "aqi_lag_1h", "pm25_lag_1h",
+    "aqi_lag_3h", "pm25_lag_3h",
+    "aqi_lag_24h", "pm25_lag_24h",
 ]
 
 scaler = MinMaxScaler()
@@ -168,6 +188,9 @@ for col in outlier_cols:
     df_final = cap_outliers(df_final, col)
 
 print(f"✅ Outliers capped for {len(outlier_cols)} columns")
+
+# ==================== ✅ Keep original AQI for Prophet ====================
+df_final["calculated_aqi"] = hourly["calculated_aqi"].values
 
 # ==================== Store in Hopsworks ====================
 # Delete old processed feature group if exists
