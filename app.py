@@ -1,12 +1,20 @@
+import os
+from dotenv import load_dotenv
 import streamlit as st
 import hopsworks
 import pandas as pd
 import numpy as np
 import joblib
-import os
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
 import plotly.express as px
+
+# ==================== SETUP ====================
+load_dotenv()
+
+# Create temp directory for Hopsworks on Windows
+tmp_path = r"C:\tmp\eu-west.cloud.hopsworks.ai"
+os.makedirs(tmp_path, exist_ok=True)
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
@@ -55,7 +63,6 @@ def load_best_model():
         model = joblib.load(model_path + "/model.pkl") if os.path.isdir(model_path) else joblib.load(model_path)
         return model, best
     except:
-        # Fallback
         models = mr.get_models(name="aqi_xgb")
         latest = models[-1]
         model_path = latest.download()
@@ -123,7 +130,7 @@ with st.sidebar:
     for the next 3 days using machine learning models trained on historical 
     weather and pollutant data.
     
-    **Features used:** PM2.5, PM10, CO, NO₂, O₃, SO₂, NH₃, temperature, 
+    **Features:** PM2.5, PM10, CO, NO₂, O₃, SO₂, NH₃, temperature, 
     humidity, wind speed + rolling statistics and lag features.
     
     **Models:** Linear Regression, Random Forest, XGBoost, Gradient Boosting
@@ -173,12 +180,10 @@ else:
 # ==================== 3-DAY FORECAST CHART ====================
 st.header("📈 3-Day AQI Forecast Trend")
 
-# Create forecast dataframe
 forecast_dates = [(datetime.now() + timedelta(days=i+1)).strftime("%a, %b %d") for i in range(3)]
 
 fig_forecast = go.Figure()
 
-# Add bars
 colors_forecast = [get_aqi_level(p)[2] for p in prediction]
 fig_forecast.add_trace(go.Bar(
     x=forecast_dates,
@@ -189,7 +194,6 @@ fig_forecast.add_trace(go.Bar(
     name="Predicted AQI"
 ))
 
-# Add threshold lines
 thresholds = [
     (50, "Good", "#00e400"),
     (100, "Moderate", "#ffff00"),
@@ -217,7 +221,6 @@ st.plotly_chart(fig_forecast, use_container_width=True)
 # ==================== HISTORICAL TREND ====================
 st.header("📉 Historical AQI Trend")
 
-# Time period selector
 period_options = {
     "Last 7 Days": 7,
     "Last 14 Days": 14,
@@ -234,11 +237,8 @@ else:
     cutoff = df["timestamp"].max() - timedelta(days=days_to_show)
     chart_df = df[df["timestamp"] >= cutoff]
 
-# Resample to daily max
 daily_aqi = chart_df.set_index("timestamp")["calculated_aqi"].resample("D").max().reset_index()
 daily_aqi.columns = ["Date", "Max AQI"]
-
-# Color points by AQI level
 daily_aqi["Color"] = daily_aqi["Max AQI"].apply(lambda x: get_aqi_level(x)[2])
 
 fig_hist = go.Figure()
@@ -270,17 +270,21 @@ latest_raw = df.sort_values("timestamp").iloc[-1]
 c1, c2, c3, c4, c5 = st.columns(5)
 
 with c1:
-    st.metric("🌡️ Temperature", f"{latest_raw.get('temperature', 'N/A'):.1f}°C" if 'temperature' in latest_raw else "N/A")
+    temp = latest_raw.get('temperature', None)
+    st.metric("🌡️ Temperature", f"{temp:.1f}°C" if pd.notna(temp) else "N/A")
 with c2:
-    st.metric("💧 Humidity", f"{latest_raw.get('humidity', 'N/A')}%" if 'humidity' in latest_raw else "N/A")
+    hum = latest_raw.get('humidity', None)
+    st.metric("💧 Humidity", f"{hum}%" if pd.notna(hum) else "N/A")
 with c3:
-    st.metric("💨 Wind Speed", f"{latest_raw.get('wind_speed', 'N/A')} m/s" if 'wind_speed' in latest_raw else "N/A")
+    wind = latest_raw.get('wind_speed', None)
+    st.metric("💨 Wind Speed", f"{wind} m/s" if pd.notna(wind) else "N/A")
 with c4:
     aqi_val = latest_raw.get('calculated_aqi', 0)
-    level, emoji, _ = get_aqi_level(aqi_val)
-    st.metric("📊 Current AQI", f"{aqi_val:.0f}", delta=level)
+    level, emoji, _ = get_aqi_level(aqi_val) if pd.notna(aqi_val) else ("N/A", "", "")
+    st.metric("📊 Current AQI", f"{aqi_val:.0f}" if pd.notna(aqi_val) else "N/A")
 with c5:
-    st.metric("🕐 Last Updated", pd.to_datetime(latest_raw["timestamp"]).strftime("%H:%M"))
+    ts = latest_raw.get("timestamp", None)
+    st.metric("🕐 Last Updated", pd.to_datetime(ts).strftime("%H:%M") if pd.notna(ts) else "N/A")
 
 # ==================== POLLUTANT BREAKDOWN ====================
 st.header("🔬 Current Pollutant Levels")
