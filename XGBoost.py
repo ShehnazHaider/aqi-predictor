@@ -15,7 +15,7 @@ mr = project.get_model_registry()
 
 fg = fs.get_feature_group(name="processed_aqi_skardu_v2", version=1)
 df = fg.read()
-df = df.sort_values("date").reset_index(drop=True)
+df = df.sort_values("timestamp").reset_index(drop=True)
 
 feature_cols = [
     "pm2_5_scaled", "pm10_scaled", "co_log_scaled", "no2_scaled",
