@@ -7,6 +7,6 @@ xgboost
 joblib
 pyarrow
 confluent-kafka
-prophet
 streamlit
 plotly
+protobuf>=3.20,<5
