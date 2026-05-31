@@ -21,6 +21,7 @@ df = df.sort_values("timestamp").reset_index(drop=True)
 # Prophet needs 'ds' (timestamp) and 'y' (target)
 df_prophet = df[["timestamp", "calculated_aqi"]].copy()
 df_prophet.columns = ["ds", "y"]
+df_prophet["ds"] = pd.to_datetime(df_prophet["ds"]).dt.tz_localize(None)  # ✅ Remove timezone
 
 # Time-based split (last 20% for test)
 split_idx = int(len(df_prophet) * 0.8)

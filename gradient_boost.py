@@ -19,6 +19,8 @@ df = fg.read()
 df = df.sort_values("timestamp").reset_index(drop=True)
 
 feature_cols = [col for col in df.columns if col.endswith("_scaled")]
+feature_cols = [col for col in df.columns if col.endswith("_scaled")]
+print(f"✅ Using {len(feature_cols)} features: {feature_cols[:5]}...")  # Show first 5
 target_cols = ["aqi_day1", "aqi_day2", "aqi_day3"]
 
 df_model = df.dropna(subset=target_cols).copy()
