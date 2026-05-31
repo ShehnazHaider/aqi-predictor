@@ -58,17 +58,30 @@ def load_data():
 def load_best_model():
     _, mr = connect_hopsworks()
     try:
-        best = mr.get_best_model("rmse_overall", "min")
+        best = mr.get_best_model(name="aqi_xgb", metric="rmse_overall", direction="min")
         model_path = best.download()
-        model = joblib.load(model_path + "/model.pkl") if os.path.isdir(model_path) else joblib.load(model_path)
+        # Find the actual model file
+        if os.path.isdir(model_path):
+            files = os.listdir(model_path)
+            pkl_files = [f for f in files if f.endswith('.pkl')]
+            model_file = os.path.join(model_path, pkl_files[0]) if pkl_files else os.path.join(model_path, "model.pkl")
+        else:
+            model_file = model_path
+        model = joblib.load(model_file)
         return model, best
-    except:
+    except Exception as e:
+        st.warning(f"Best model not found, using fallback: {e}")
         models = mr.get_models(name="aqi_xgb")
         latest = models[-1]
         model_path = latest.download()
-        model = joblib.load(model_path + "/model.pkl") if os.path.isdir(model_path) else joblib.load(model_path)
+        if os.path.isdir(model_path):
+            files = os.listdir(model_path)
+            pkl_files = [f for f in files if f.endswith('.pkl')]
+            model_file = os.path.join(model_path, pkl_files[0]) if pkl_files else os.path.join(model_path, "model.pkl")
+        else:
+            model_file = model_path
+        model = joblib.load(model_file)
         return model, latest
-
 # ==================== AQI HELPERS ====================
 def get_aqi_level(aqi_value):
     if aqi_value <= 50:
