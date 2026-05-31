@@ -14,7 +14,7 @@ project = hopsworks.login(api_key_value=os.environ["HOPSWORKS_API_KEY"])
 fs = project.get_feature_store()
 mr = project.get_model_registry()
 
-fg = fs.get_feature_group(name="processed_aqi_skardu", version=1)
+fg = fs.get_feature_group(name="processed_aqi_skardu_v2", version=1)
 df = fg.read()
 df = df.sort_values("date").reset_index(drop=True)
 
