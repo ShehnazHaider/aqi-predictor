@@ -51,7 +51,7 @@ jobs:
       - name: 🧠 Train Prophet
         env:
           HOPSWORKS_API_KEY: ${{ secrets.HOPSWORKS_API_KEY }}
-        run: prophet_model.py
+        run: python prophet_model.py
 
       - name: 🏆 Compare models & select best
         env:
