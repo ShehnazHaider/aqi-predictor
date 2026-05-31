@@ -18,12 +18,7 @@ fg = fs.get_feature_group(name="processed_aqi_skardu_v2", version=1)
 df = fg.read()
 df = df.sort_values("timestamp").reset_index(drop=True)
 # ==================== Features & Targets ====================
-feature_cols = [
-    "pm2_5_scaled", "pm10_scaled", "co_log_scaled", "no2_scaled",
-    "o3_scaled", "so2_log_scaled", "nh3_log_scaled",
-    "temperature_scaled", "humidity_scaled", "wind_speed_scaled",
-    "day_scaled", "month_scaled", "aqi_change_rate_scaled"
-]
+feature_cols = [col for col in df.columns if col.endswith("_scaled")]
 
 target_cols = ["aqi_day1", "aqi_day2", "aqi_day3"]
 
