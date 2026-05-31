@@ -118,14 +118,25 @@ hourly["nh3_log"] = np.log1p(hourly["nh3"])
 hourly = hourly.sort_values("timestamp").reset_index(drop=True)
 hourly["aqi_change_rate"] = hourly["calculated_aqi"].diff().fillna(0).round(2)
 
-# ==================== ✅ ROLLING STATISTICS ====================
+# ==================== ✅ FEATURE INTERACTION ====================
+hourly["pm25_temp_interaction"] = hourly["pm2_5"] * hourly["temperature"]
+hourly["pm10_co_interaction"] = hourly["pm10"] * hourly["co"]
+hourly["aqi_temp_interaction"] = hourly["calculated_aqi"] * hourly["temperature"]
+
+# ==================== ✅ ROLLING STATISTICS (AQI + PM2.5 + PM10 + CO) ====================
 for window in [6, 12, 24]:
+    # AQI rolling
     hourly[f"aqi_rolling_mean_{window}h"] = hourly["calculated_aqi"].rolling(window).mean()
     hourly[f"aqi_rolling_std_{window}h"] = hourly["calculated_aqi"].rolling(window).std()
+    # PM2.5 rolling
     hourly[f"pm25_rolling_mean_{window}h"] = hourly["pm2_5"].rolling(window).mean()
+    # PM10 rolling
+    hourly[f"pm10_rolling_mean_{window}h"] = hourly["pm10"].rolling(window).mean()
+    # CO rolling
+    hourly[f"co_rolling_mean_{window}h"] = hourly["co"].rolling(window).mean()
 
-# ==================== ✅ LAG FEATURES ====================
-for lag in [1, 3, 24]:
+# ==================== ✅ LAG FEATURES (AQI + PM2.5) ====================
+for lag in [1, 2, 3, 6, 12, 24, 48]:
     hourly[f"aqi_lag_{lag}h"] = hourly["calculated_aqi"].shift(lag)
     hourly[f"pm25_lag_{lag}h"] = hourly["pm2_5"].shift(lag)
 
@@ -149,17 +160,30 @@ hourly.insert(0, "id", range(1, len(hourly) + 1))
 
 # ==================== Feature Scaling ====================
 features_to_scale = [
+    # Original features
     "pm2_5", "pm10", "co_log", "no2", "o3",
     "so2_log", "nh3_log",
     "temperature", "humidity", "wind_speed",
     "hour", "day", "month",
     "aqi_change_rate",
-    "aqi_rolling_mean_6h", "aqi_rolling_std_6h", "pm25_rolling_mean_6h",
-    "aqi_rolling_mean_12h", "aqi_rolling_std_12h", "pm25_rolling_mean_12h",
-    "aqi_rolling_mean_24h", "aqi_rolling_std_24h", "pm25_rolling_mean_24h",
+    # Feature interactions
+    "pm25_temp_interaction", "pm10_co_interaction", "aqi_temp_interaction",
+    # Rolling means/stds (AQI)
+    "aqi_rolling_mean_6h", "aqi_rolling_std_6h",
+    "aqi_rolling_mean_12h", "aqi_rolling_std_12h",
+    "aqi_rolling_mean_24h", "aqi_rolling_std_24h",
+    # Rolling means (PM2.5, PM10, CO)
+    "pm25_rolling_mean_6h", "pm25_rolling_mean_12h", "pm25_rolling_mean_24h",
+    "pm10_rolling_mean_6h", "pm10_rolling_mean_12h", "pm10_rolling_mean_24h",
+    "co_rolling_mean_6h", "co_rolling_mean_12h", "co_rolling_mean_24h",
+    # Lag features (AQI + PM2.5)
     "aqi_lag_1h", "pm25_lag_1h",
+    "aqi_lag_2h", "pm25_lag_2h",
     "aqi_lag_3h", "pm25_lag_3h",
+    "aqi_lag_6h", "pm25_lag_6h",
+    "aqi_lag_12h", "pm25_lag_12h",
     "aqi_lag_24h", "pm25_lag_24h",
+    "aqi_lag_48h", "pm25_lag_48h",
 ]
 
 scaler = MinMaxScaler()
@@ -189,7 +213,7 @@ for col in outlier_cols:
 
 print(f"✅ Outliers capped for {len(outlier_cols)} columns")
 
-# ==================== ✅ Keep original AQI for Prophet ====================
+# ==================== Keep original AQI for Prophet (if needed) ====================
 df_final["calculated_aqi"] = hourly["calculated_aqi"].values
 
 # ==================== Store in Hopsworks ====================
@@ -206,12 +230,12 @@ processed_fg = fs.get_or_create_feature_group(
     version=1,
     primary_key=["id"],
     online_enabled=False,
-    description="Hourly AQI data with 3-day forecast targets (24h/48h/72h shifts)"
+    description="Hourly AQI data with 3-day forecast targets + advanced features"
 )
 
 processed_fg.insert(df_final, write_options={"wait_for_job": True})
 print(f"✅ Processed data stored in Hopsworks feature group")
 print(f"   Total hourly rows: {len(df_final)}")
-print(f"   Feature columns: {[c for c in df_final.columns if '_scaled' in c]}")
+print(f"   Total feature columns: {len([c for c in df_final.columns if '_scaled' in c])}")
 print(f"   Target columns: aqi_day1, aqi_day2, aqi_day3")
 print(f"   Date range: {df_final['timestamp'].min()} to {df_final['timestamp'].max()}")
