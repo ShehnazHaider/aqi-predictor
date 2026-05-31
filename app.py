@@ -7,114 +7,107 @@ import numpy as np
 import joblib
 from datetime import datetime, timedelta
 import plotly.graph_objects as go
-import plotly.express as px
 
 # ==================== SETUP ====================
 load_dotenv()
 
-# ==================== PAGE CONFIG ====================
 st.set_page_config(
-    page_title="AQI Predictor - Skardu",
+    page_title="AQI Dashboard - Skardu",
     page_icon="🌫️",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# ==================== STYLING ====================
+# ==================== MODERN UI STYLING ====================
 st.markdown("""
 <style>
 
-/* ================= GLOBAL THEME ================= */
-html, body, [class*="css"]  {
+/* ========== GLOBAL ========== */
+html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
 }
 
-/* App background (soft gradient like your reference image) */
 .stApp {
-    background: linear-gradient(135deg, #f5f7fb 0%, #eef2f7 40%, #f9fbff 100%);
+    background: linear-gradient(135deg, #eef2f7 0%, #f7f9fc 40%, #eef3fb 100%);
 }
 
-/* ================= HEADER ================= */
+/* ========== HEADER ========== */
 .main-header {
     font-size: 2.6rem;
     font-weight: 800;
-    background: linear-gradient(90deg, #1f3c88, #2f80ed);
+    background: linear-gradient(90deg, #2563eb, #06b6d4);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    margin-bottom: 0.2rem;
 }
 
-/* ================= GLASS CARD STYLE ================= */
-div[data-testid="stMetric"],
-div[data-testid="stVerticalBlock"] > div,
-.stContainer {
+/* ========== GLASS CARD SYSTEM ========== */
+.card {
     background: rgba(255, 255, 255, 0.75);
     border-radius: 18px;
-    padding: 16px 18px;
+    padding: 18px 20px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.06);
     border: 1px solid rgba(255,255,255,0.4);
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(12px);
 }
 
-/* ================= METRICS ================= */
+/* ========== METRICS ========== */
 [data-testid="stMetric"] {
+    background: rgba(255,255,255,0.8);
     border-radius: 16px;
     padding: 14px;
-    background: rgba(255,255,255,0.8);
     box-shadow: 0 6px 18px rgba(0,0,0,0.06);
 }
 
+/* metric labels */
 [data-testid="stMetricLabel"] {
     font-size: 0.85rem;
     color: #6b7280;
 }
 
+/* metric value */
 [data-testid="stMetricValue"] {
     font-size: 1.6rem;
     font-weight: 700;
 }
 
-/* ================= AQI COLOR BADGES ================= */
-.aqi-good { color: #00c853; font-weight: 700; }
-.aqi-moderate { color: #fbc02d; font-weight: 700; }
-.aqi-sensitive { color: #fb8c00; font-weight: 700; }
-.aqi-unhealthy { color: #e53935; font-weight: 700; }
-.aqi-very-unhealthy { color: #8e24aa; font-weight: 700; }
-.aqi-hazardous { color: #6d001a; font-weight: 700; }
+/* ========== SIDEBAR ========== */
+section[data-testid="stSidebar"] {
+    background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(14px);
+}
 
-/* ================= BUTTONS ================= */
+/* ========== BUTTONS ========== */
 .stButton button {
-    background: linear-gradient(90deg, #2f80ed, #1f3c88);
+    background: linear-gradient(90deg, #2563eb, #06b6d4);
     color: white;
     border-radius: 12px;
     border: none;
-    padding: 0.5rem 1rem;
     font-weight: 600;
+    padding: 0.5rem 1rem;
 }
 
-/* Hover effect */
 .stButton button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 18px rgba(47,128,237,0.3);
+    box-shadow: 0 10px 20px rgba(37,99,235,0.25);
 }
 
-/* ================= SIDEBAR ================= */
-section[data-testid="stSidebar"] {
-    background: rgba(255,255,255,0.6);
-    backdrop-filter: blur(12px);
-}
-
-/* ================= DIVIDERS ================= */
+/* ========== DIVIDERS ========== */
 hr {
     border: none;
     height: 1px;
     background: rgba(0,0,0,0.08);
-    margin: 1rem 0;
 }
+
+/* ========== AQI COLORS ========== */
+.good { color: #00c853; font-weight: 700; }
+.moderate { color: #facc15; font-weight: 700; }
+.unhealthy { color: #ef4444; font-weight: 700; }
+.hazardous { color: #7c2d12; font-weight: 700; }
 
 </style>
 """, unsafe_allow_html=True)
 
-# ==================== CONNECT TO HOPSWORKS ====================
+# ==================== HOPSWORKS ====================
 @st.cache_resource(ttl=3600)
 def connect_hopsworks():
     project = hopsworks.login(api_key_value=os.environ["HOPSWORKS_API_KEY"])
@@ -122,298 +115,120 @@ def connect_hopsworks():
     mr = project.get_model_registry()
     return fs, mr
 
-# ==================== LOAD DATA ====================
+# ==================== DATA ====================
 @st.cache_data(ttl=1800)
 def load_data():
     fs, _ = connect_hopsworks()
     fg = fs.get_feature_group(name="processed_aqi_skardu_v2", version=1)
-    df = fg.read()
-    df = df.sort_values("timestamp")
+    df = fg.read().sort_values("timestamp")
     return df
 
 @st.cache_data(ttl=1800)
-def load_raw_data():
+def load_raw():
     fs, _ = connect_hopsworks()
     fg = fs.get_feature_group(name="aqi_predictionv2", version=1)
-    df = fg.read()
-    df = df.sort_values("timestamp")
+    df = fg.read().sort_values("timestamp")
     return df
 
-# ==================== LOAD BEST MODEL ====================
+# ==================== MODEL ====================
 @st.cache_resource(ttl=3600)
-def load_best_model():
+def load_model():
     _, mr = connect_hopsworks()
-    try:
-        best = mr.get_best_model(name="aqi_xgb", metric="rmse_overall", direction="min")
-        model_path = best.download()
-        if os.path.isdir(model_path):
-            files = os.listdir(model_path)
-            pkl_files = [f for f in files if f.endswith('.pkl')]
-            model_file = os.path.join(model_path, pkl_files[0]) if pkl_files else os.path.join(model_path, "model.pkl")
-        else:
-            model_file = model_path
-        model = joblib.load(model_file)
-        return model, best
-    except Exception as e:
-        st.warning(f"Best model not found, using fallback")
-        models = mr.get_models(name="aqi_xgb")
-        latest = models[-1]
-        model_path = latest.download()
-        if os.path.isdir(model_path):
-            files = os.listdir(model_path)
-            pkl_files = [f for f in files if f.endswith('.pkl')]
-            model_file = os.path.join(model_path, pkl_files[0]) if pkl_files else os.path.join(model_path, "model.pkl")
-        else:
-            model_file = model_path
-        model = joblib.load(model_file)
-        return model, latest
+    model = mr.get_best_model(name="aqi_xgb", metric="rmse_overall", direction="min")
+    path = model.download()
+    file = os.path.join(path, os.listdir(path)[0])
+    return joblib.load(file), model
 
 # ==================== AQI HELPERS ====================
-def get_aqi_level(aqi_value):
-    if aqi_value <= 50:
-        return "Good", "🟢", "#00e400"
-    elif aqi_value <= 100:
-        return "Moderate", "🟡", "#ffff00"
-    elif aqi_value <= 150:
-        return "Unhealthy for Sensitive Groups", "🟠", "#ff7e00"
-    elif aqi_value <= 200:
-        return "Unhealthy", "🔴", "#ff0000"
-    elif aqi_value <= 300:
-        return "Very Unhealthy", "🟣", "#8f3f97"
+def aqi_label(v):
+    if v <= 50:
+        return "Good", "#00c853"
+    elif v <= 100:
+        return "Moderate", "#facc15"
+    elif v <= 150:
+        return "Unhealthy", "#fb923c"
     else:
-        return "Hazardous", "🟤", "#7e0023"
+        return "Hazardous", "#ef4444"
 
-def get_aqi_health_advice(aqi_value):
-    if aqi_value <= 50:
-        return "Air quality is satisfactory. Enjoy outdoor activities!"
-    elif aqi_value <= 100:
-        return "Air quality is acceptable. Sensitive individuals should limit prolonged outdoor exertion."
-    elif aqi_value <= 150:
-        return "Sensitive groups may experience health effects. General public is less likely to be affected."
-    elif aqi_value <= 200:
-        return "Everyone may begin to experience health effects. Limit outdoor activities."
-    elif aqi_value <= 300:
-        return "Health alert: Everyone may experience more serious health effects. Avoid outdoor activities."
-    else:
-        return "Health warning: Emergency conditions. Stay indoors with windows closed."
+# ==================== HEADER ====================
+st.markdown('<div class="main-header">🌫️ AQI Dashboard — Skardu</div>', unsafe_allow_html=True)
+st.caption("AI-powered air quality forecasting with real-time insights")
 
-# ==================== MAIN APP ====================
-st.markdown('<p class="main-header">🌫️ AQI Predictor — Skardu</p>', unsafe_allow_html=True)
-st.caption("3-Day Air Quality Index Forecast | Powered by Machine Learning")
-
-# Load data and model
-with st.spinner("🔄 Loading data and model..."):
+# ==================== LOAD ====================
+with st.spinner("Loading system..."):
     df = load_data()
-    df_raw = load_raw_data()
-    model, model_meta = load_best_model()
+    df_raw = load_raw()
+    model, meta = load_model()
 
-# ==================== SIDEBAR ====================
+# ==================== SIDEBAR (SaaS STYLE NAV) ====================
 with st.sidebar:
-    st.header("📊 Model Information")
-    st.metric("Best Model", model_meta.name.upper())
-    st.metric("Version", model_meta.version)
-    
-    metrics = model_meta.training_metrics
-    st.metric("R² Score", f"{metrics.get('r2_overall', 0):.3f}")
-    st.metric("RMSE", f"{metrics.get('rmse_overall', 0):.1f}")
-    st.metric("MAE", f"{metrics.get('mae_overall', 0):.1f}")
-    
+    st.markdown("## 🌫️ AQI System")
+    page = st.radio("Navigation", ["Dashboard", "Forecast", "Analytics"])
+
     st.divider()
-    st.header("📅 Dataset Info")
-    st.metric("Total Records", f"{len(df):,}")
-    st.metric("Date Range", f"{df['timestamp'].min().strftime('%Y-%m-%d')} → {df['timestamp'].max().strftime('%Y-%m-%d')}")
-    
-    st.divider()
-    st.header("🎯 About")
-    st.markdown("""
-    This dashboard predicts **Air Quality Index (AQI)** for Skardu, Pakistan 
-    for the next 3 days using machine learning models trained on historical 
-    weather and pollutant data.
-    
-    **Features:** PM2.5, PM10, CO, NO₂, O₃, SO₂, NH₃, temperature, 
-    humidity, wind speed + rolling statistics and lag features.
-    
-    **Models:** Linear Regression, Random Forest, XGBoost, Gradient Boosting
-    """)
+    st.markdown("### 📊 Model")
+    st.write(meta.name)
+    st.write(f"v{meta.version}")
 
-# ==================== PREDICTIONS SECTION ====================
-st.header("🔮 3-Day AQI Forecast")
+# ==================== DASHBOARD ====================
+if page == "Dashboard":
 
-# Get feature columns
-feature_cols = [c for c in df.columns if c.endswith("_scaled")]
+    latest = df_raw.iloc[-1]
 
-# Get latest data point
-latest = df.sort_values("timestamp").iloc[-1:]
+    st.markdown("## 📊 Live Conditions")
 
-# Predict
-prediction = model.predict(latest[feature_cols])[0]
+    c1, c2, c3, c4 = st.columns(4)
 
-# Display forecast cards
-col1, col2, col3 = st.columns(3, gap="medium")
+    with c1:
+        st.markdown('<div class="card">🌡️ Temp<br><b>{:.1f}°C</b></div>'.format(latest.get("temperature", 0)), unsafe_allow_html=True)
+    with c2:
+        st.markdown('<div class="card">💧 Humidity<br><b>{:.0f}%</b></div>'.format(latest.get("humidity", 0)), unsafe_allow_html=True)
+    with c3:
+        st.markdown('<div class="card">💨 Wind<br><b>{:.1f} m/s</b></div>'.format(latest.get("wind_speed", 0)), unsafe_allow_html=True)
+    with c4:
+        val = latest.get("calculated_aqi", 0)
+        label, color = aqi_label(val)
+        st.markdown(f'<div class="card">📊 AQI<br><b style="color:{color}">{val:.0f} ({label})</b></div>', unsafe_allow_html=True)
 
-days = [
-    (datetime.now() + timedelta(days=i+1)).strftime("%A, %b %d")
-    for i in range(3)
-]
+# ==================== FORECAST ====================
+if page == "Forecast":
 
-for i, (col, day, pred) in enumerate(zip([col1, col2, col3], days, prediction)):
-    level, emoji, color = get_aqi_level(pred)
-    
-    with col:
-        with st.container(border=True):
-            st.markdown(f"### 📅 {day}")
-            st.markdown(f"<h1 style='text-align: center; color: {color}; font-size: 3rem;'>{pred:.0f}</h1>", unsafe_allow_html=True)
-            st.markdown(f"<p style='text-align: center;'>{emoji} <b>{level}</b></p>", unsafe_allow_html=True)
+    st.markdown("## 🔮 3-Day Forecast")
 
-# Health advice
-st.divider()
-max_aqi = max(prediction)
-advice = get_aqi_health_advice(max_aqi)
+    features = [c for c in df.columns if c.endswith("_scaled")]
+    latest_row = df.iloc[-1:][features]
 
-if max_aqi > 150:
-    st.error(f"⚠️ **HEALTH ADVISORY:** {advice}")
-elif max_aqi > 100:
-    st.warning(f"⚡ **NOTE:** {advice}")
-else:
-    st.success(f"✅ {advice}")
+    pred = model.predict(latest_row)[0]
 
-# ==================== 3-DAY FORECAST CHART ====================
-st.header("📈 3-Day AQI Forecast Trend")
+    cols = st.columns(3)
 
-forecast_dates = [(datetime.now() + timedelta(days=i+1)).strftime("%a, %b %d") for i in range(3)]
+    for i, c in enumerate(cols):
+        v = pred[i]
+        label, color = aqi_label(v)
 
-fig_forecast = go.Figure()
+        c.markdown(f"""
+        <div class="card" style="text-align:center">
+            <h3>Day {i+1}</h3>
+            <h1 style="color:{color}">{v:.0f}</h1>
+            <p>{label}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-colors_forecast = [get_aqi_level(p)[2] for p in prediction]
-fig_forecast.add_trace(go.Bar(
-    x=forecast_dates,
-    y=prediction,
-    marker_color=colors_forecast,
-    text=[f"{p:.0f}" for p in prediction],
-    textposition="outside",
-    name="Predicted AQI"
-))
+    fig = go.Figure()
+    fig.add_trace(go.Bar(y=pred, x=["Day 1","Day 2","Day 3"]))
+    st.plotly_chart(fig, use_container_width=True)
 
-thresholds = [
-    (50, "Good", "#00e400"),
-    (100, "Moderate", "#ffff00"),
-    (150, "Unhealthy (Sensitive)", "#ff7e00"),
-    (200, "Unhealthy", "#ff0000"),
-]
+# ==================== ANALYTICS ====================
+if page == "Analytics":
 
-for threshold, label, color in thresholds:
-    fig_forecast.add_hline(
-        y=threshold, line_dash="dash", line_color=color,
-        annotation_text=f"{label} ({threshold})",
-        annotation_position="right"
-    )
+    st.markdown("## 📈 Trends")
 
-fig_forecast.update_layout(
-    title="Predicted AQI — Next 3 Days",
-    yaxis_title="AQI Value",
-    height=400,
-    showlegend=False,
-    margin=dict(t=40, b=20)
-)
+    daily = df.set_index("timestamp")["calculated_aqi"].resample("D").mean().reset_index()
 
-st.plotly_chart(fig_forecast, use_container_width=True)
-
-# ==================== HISTORICAL TREND ====================
-st.header("📉 Historical AQI Trend")
-
-period_options = {
-    "Last 7 Days": 7,
-    "Last 14 Days": 14,
-    "Last 30 Days": 30,
-    "Last 90 Days": 90,
-    "All Time": 999,
-}
-selected_period = st.selectbox("Select time period", list(period_options.keys()), index=2)
-
-days_to_show = period_options[selected_period]
-if days_to_show == 999:
-    chart_df = df.copy()
-else:
-    cutoff = df["timestamp"].max() - timedelta(days=days_to_show)
-    chart_df = df[df["timestamp"] >= cutoff]
-
-daily_aqi = chart_df.set_index("timestamp")["calculated_aqi"].resample("D").max().reset_index()
-daily_aqi.columns = ["Date", "Max AQI"]
-daily_aqi["Color"] = daily_aqi["Max AQI"].apply(lambda x: get_aqi_level(x)[2])
-
-fig_hist = go.Figure()
-
-fig_hist.add_trace(go.Scatter(
-    x=daily_aqi["Date"],
-    y=daily_aqi["Max AQI"],
-    mode="lines+markers",
-    marker=dict(color=daily_aqi["Color"], size=6),
-    line=dict(color="#1f77b4", width=1),
-    name="Daily Max AQI"
-))
-
-fig_hist.update_layout(
-    title=f"Daily Maximum AQI — {selected_period}",
-    yaxis_title="AQI Value",
-    height=400,
-    margin=dict(t=40, b=20),
-    hovermode="x unified"
-)
-
-st.plotly_chart(fig_hist, use_container_width=True)
-
-# ==================== CURRENT CONDITIONS ====================
-st.header("🌡️ Current Conditions")
-
-latest_raw = df_raw.sort_values("timestamp").iloc[-1]
-
-c1, c2, c3, c4, c5 = st.columns(5)
-
-with c1:
-    temp = latest_raw.get('temperature', None)
-    st.metric("🌡️ Temperature", f"{temp:.1f}°C" if pd.notna(temp) else "N/A")
-with c2:
-    hum = latest_raw.get('humidity', None)
-    st.metric("💧 Humidity", f"{hum:.0f}%" if pd.notna(hum) else "N/A")
-with c3:
-    wind = latest_raw.get('wind_speed', None)
-    st.metric("💨 Wind Speed", f"{wind:.1f} m/s" if pd.notna(wind) else "N/A")
-with c4:
-    aqi_val = latest_raw.get('calculated_aqi', None)
-    if pd.notna(aqi_val):
-        level, emoji, _ = get_aqi_level(aqi_val)
-        st.metric("📊 Current AQI", f"{aqi_val:.0f}")
-    else:
-        st.metric("📊 Current AQI", "N/A")
-with c5:
-    ts = latest_raw.get("timestamp", None)
-    st.metric("🕐 Last Updated", pd.to_datetime(ts).strftime("%H:%M") if pd.notna(ts) else "N/A")
-
-# ==================== POLLUTANT BREAKDOWN ====================
-st.header("🔬 Current Pollutant Levels")
-
-pollutants = {
-    "PM2.5": ("pm2_5", "μg/m³", 35),
-    "PM10": ("pm10", "μg/m³", 150),
-    "CO": ("co", "μg/m³", 10000),
-    "NO₂": ("no2", "μg/m³", 200),
-    "O₃": ("o3", "μg/m³", 180),
-    "SO₂": ("so2", "μg/m³", 75),
-    "NH₃": ("nh3", "μg/m³", 200),
-}
-
-p_col1, p_col2, p_col3, p_col4 = st.columns(4)
-
-for i, (name, (col, unit, safe_limit)) in enumerate(pollutants.items()):
-    with [p_col1, p_col2, p_col3, p_col4][i % 4]:
-        value = latest_raw.get(col, 0)
-        if pd.notna(value):
-            status = "🟢" if value <= safe_limit else "🔴"
-            st.metric(f"{status} {name}", f"{value:.1f} {unit}")
-        else:
-            st.metric(f"⚪ {name}", "N/A")
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=daily["timestamp"], y=daily["calculated_aqi"], mode="lines"))
+    st.plotly_chart(fig, use_container_width=True)
 
 # ==================== FOOTER ====================
 st.divider()
-st.caption("🔄 Data updates hourly | Models retrain daily at 3 AM UTC | Built with ❤️ for Skardu, Pakistan")
-st.caption(f"Last data refresh: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+st.caption("Built with Streamlit • AI Forecasting System • Skardu AQI Project")
