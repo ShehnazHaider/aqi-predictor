@@ -12,7 +12,7 @@ HOPSWORKS_API_KEY = os.getenv("HOPSWORKS_API_KEY")
 HOPSWORKS_PROJECT = os.getenv("HOPSWORKS_PROJECT_NAME")
 HOPSWORKS_HOST = os.getenv("HOPSWORKS_HOST")
 
-LAT = 35.29  # Skardu
+LAT = 35.29
 LON = 75.63
 
 def fetch_data():
@@ -22,11 +22,10 @@ def fetch_data():
     weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={LAT}&lon={LON}&appid={API_KEY}&units=metric"
     weather = requests.get(weather_url).json()
 
-    # ✅ FIXED: consistent timestamp format (UTC datetime, not string)
     now = pd.Timestamp.utcnow()
 
     return pd.DataFrame([{
-        "timestamp":   now,   # ✅ FIXED
+        "timestamp":   now,
         "temperature": float(weather["main"]["temp"]),
         "humidity":    int(weather["main"]["humidity"]),
         "wind_speed":  float(weather["wind"]["speed"]),
@@ -48,31 +47,27 @@ def upload_to_hopsworks(df):
     )
     fs = project.get_feature_store()
 
-    fg = fs.get_or_create_feature_group(
-        name="aqi_predictionv2",
-        version=1,
-        primary_key=["timestamp"],   # ✅ FIXED (was timestamp_str)
-        description="Hourly AQI + weather data for Skardu",
-        online_enabled=True
-    )
+    fg = fs.get_feature_group(name="aqi_predictionv2", version=1)
+    
+    # Read existing data to get the last id
+    try:
+        existing = fg.read()
+        last_id = existing["id"].max() if len(existing) > 0 else 0
+    except:
+        last_id = 0
+    
+    # Assign new id
+    df.insert(0, "id", last_id + 1)
 
-    fg.insert(df, write_options={"wait_for_job": False, "use_kafka": False})
-    print("✅ Data inserted into Hopsworks successfully")
+    fg.insert(df, write_options={"wait_for_job": False})
+    print(f"✅ Data inserted: id={df['id'].iloc[0]}")
 
 if __name__ == "__main__":
     print("🔄 Fetching data...")
     df = fetch_data()
-
-    # optional safety check
     df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True)
-
     print(df.dtypes)
-    print(df)
-
+    
     print("🔄 Uploading to Hopsworks...")
     upload_to_hopsworks(df)
-
     print("✅ Pipeline completed!")
-
-
-   

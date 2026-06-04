@@ -1,11 +1,4 @@
-# =========================================================
-# HISTORICAL OPEN-METEO WEATHER DATA
-# =========================================================
 
-!pip install pandas requests -q
-
-import requests
-import pandas as pd
 
 # =========================================================
 # LOCATION — SKARDU
